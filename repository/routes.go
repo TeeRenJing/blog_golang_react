@@ -15,5 +15,6 @@ func (repo *Repository) SetupRoutes(app *fiber.App){
 	api.Post("/login", repo.Login)
 	api.Get("/user", repo.User)
 	api.Post("/logout", repo.Logout)
-
+	api.Post("/comments", repo.CreateComment)
+	api.Get("/comments/:postID", repo.GetCommentsByPostID)
 }

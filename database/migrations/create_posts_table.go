@@ -11,6 +11,7 @@ type Post struct {
 	gorm.Model
 	Title string `json:"title"`
 	Content string `json:"content"`
+	Category string `json:"category"`
 	Upvotes int32 `json:"upvotes"`
 	UserID int
   	User   User
@@ -19,9 +20,9 @@ type Post struct {
 type Comment struct {
 	gorm.Model
 	Comment string `json:"comment"`
-	PostID int 
+	PostID int `json:"postID"`
 	Post  Post
-	UserID int
+	UserID int `json:"userID"`
 	User  User
 }
 

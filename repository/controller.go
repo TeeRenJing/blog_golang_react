@@ -10,7 +10,7 @@ import (
 	"github.com/TeeRenJing/blog_golang_react/database/models"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gofiber/fiber/v2"
-	"github.com/morkid/paginate"
+	// "github.com/morkid/paginate"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/go-playground/validator.v9"
 )
@@ -39,17 +39,50 @@ func ValidateStruct(post models.Post) []*ErrorResponse {
 }
 
 func (r *Repository) GetPosts(context *fiber.Ctx) error {
+	var posts []migrations.Post
 	db := r.DB
-	model := db.Model(&migrations.Post{})
-	pg := paginate.New(&paginate.Config{
-		DefaultSize: 20,
-		CustomParamEnabled: true,
-	})
+	// model := db.Model(&migrations.Post{})
+	
 
-	page := pg.With(model).Request(context.Request()).Response(&[]migrations.Post{})
+	err := db.Joins("User").Find(&posts).Error
+	if err != nil {
+		context.Status(http.StatusBadRequest).JSON(&fiber.Map{"message": "Could not get the posts"})
+		return err
+	}
+
+	// pg := paginate.New(&paginate.Config{
+	// 	DefaultSize: 20,
+	// 	CustomParamEnabled: true,
+	// })
+
+	// page := pg.With(model).Request(context.Request()).Response(&[]migrations.Post{})
+
 
 	context.Status(http.StatusOK).JSON(&fiber.Map{
-		"data": page,
+		"data": posts,
+	})
+	return nil
+}
+
+func (r *Repository) GetCommentsByPostID(context *fiber.Ctx) error {
+	var comments []migrations.Comment
+	db := r.DB
+	postID, error := strconv.Atoi(context.Params("postID"))
+
+	if error != nil {
+		context.Status(http.StatusBadRequest).JSON(&fiber.Map{"message": error})
+		return error
+	}
+
+	err := db.Joins("User").Find(&comments, migrations.Comment{PostID: postID}).Error
+	
+	if err != nil {
+		context.Status(http.StatusBadRequest).JSON(&fiber.Map{"message": "Could not get the comments"})
+		return err
+	}
+
+	context.Status(http.StatusOK).JSON(&fiber.Map{
+		"data": comments,
 	})
 	return nil
 }
@@ -82,6 +115,35 @@ func (r *Repository) CreatePost(context *fiber.Ctx) error {
 	context.Status(http.StatusOK).JSON(&fiber.Map{
 		"message": "Post has been added", 
 		"data": post,
+	})
+
+	return nil
+}
+
+func (r *Repository) CreateComment(context *fiber.Ctx) error {
+	comment := models.Comment{}
+	err := context.BodyParser(&comment)
+
+	if err != nil {
+		context.Status(http.StatusUnprocessableEntity).JSON(
+			&fiber.Map{
+				"message": "Request failed",
+			},
+		)
+		return err
+	}
+
+	if err := r.DB.Create(&comment).Error; err != nil {
+
+		return context.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"status": "error", 
+			"message": "Couldn't create comment", 
+			"data": err,
+		})
+	}
+	context.Status(http.StatusOK).JSON(&fiber.Map{
+		"message": "Comment has been added", 
+		"data": comment,
 	})
 
 	return nil
@@ -143,7 +205,7 @@ func (r *Repository) DeletePost(context *fiber.Ctx) error {
 }
 
 func (r *Repository) GetPostByID(context *fiber.Ctx) error {
-	postModel := &migrations.Post{}
+	postModel := migrations.Post{}
 	id := context.Params("id")
 
 	if id == "" {
@@ -151,7 +213,7 @@ func (r *Repository) GetPostByID(context *fiber.Ctx) error {
 		return nil
 	}
 
-	err := r.DB.Where("id = ?", id).First(postModel).Error
+	err := r.DB.Joins("User").First(&postModel, id).Error
 
 	if err != nil {
 		context.Status(http.StatusBadRequest).JSON(&fiber.Map{"message": "Could not get the post"})
